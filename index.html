@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The New Jersey Software Company</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+  :root {
+    --bg: #EFEFED;
+    --ink: #144835;
+    --ink-rgb: 20, 72, 53;
+    --pad: clamp(24px, 5vw, 48px); /* distance from viewport edges to the frame lines and ornament centers */
+    color-scheme: light dark;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #144835;
+      --ink: #EFEFED;
+      --ink-rgb: 239, 239, 237;
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  /* dotted frame around the viewport — no bottom edge; the ornament rules
+     act as the bottom line, so the sides run down to meet them */
+  .frame {
+    position: fixed;
+    top: var(--pad);
+    left: var(--pad);
+    right: var(--pad);
+    bottom: 60px; /* center of the ornament row, where the rules sit */
+    pointer-events: none;
+  }
+
+  /* lines are drawn as repeating gradients (not borders) so the dots can
+     march; each sits in a 10px hitbox so it's hoverable. Motion is driven
+     from JS (background-position) so it can ease in and out. */
+  .frame .line { position: absolute; pointer-events: auto; }
+  .frame .line.top {
+    left: 0; right: 0; top: -12px; height: 24px;
+    background: repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 5px) 0 11px / 5px 2px repeat-x;
+  }
+  .frame .line.left {
+    top: 0; bottom: 0; left: -12px; width: 24px;
+    background: repeating-linear-gradient(180deg, var(--ink) 0 2px, transparent 2px 5px) 11px 0 / 2px 5px repeat-y;
+  }
+  .frame .line.right {
+    top: 0; bottom: 0; right: -12px; width: 24px;
+    background: repeating-linear-gradient(180deg, var(--ink) 0 2px, transparent 2px 5px) 11px 0 / 2px 5px repeat-y;
+  }
+
+  /* logo dead-center on screen; buttons hang below it in the lower third.
+     pointer-events off so the frame lines behind stay hoverable */
+  main {
+    position: fixed;
+    inset: 0;
+    /* keeps the grid clear of the top frame and the footer on short
+       screens; equal top/bottom so the logo stays screen-centered */
+    padding: 110px 0;
+    display: grid;
+    grid-template-rows: 1fr auto 1fr;
+    justify-items: center;
+    pointer-events: none;
+  }
+
+  .logo {
+    grid-row: 2;
+    align-self: center;
+    width: min(320px, 70vw, 55vh);
+    cursor: pointer;
+    pointer-events: auto;
+  }
+  .logo video,
+  .logo canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    /* trim 1px: the filtered/blended surface can grow a dark hairline at
+       its fractional-pixel bottom edge */
+    clip-path: inset(1px);
+  }
+  .logo canvas { display: none; }
+
+  .buttons {
+    grid-row: 3;
+    align-self: start;
+    margin-top: clamp(16px, 4vh, 36px);
+    display: flex;
+    gap: 12px;
+  }
+
+  /* short viewports: exact logo centering can't fit anymore, so the
+     buttons join the centered group (extra auto row) and things tighten */
+  @media (max-height: 500px) {
+    main {
+      padding: 36px 0 108px;
+      grid-template-rows: 1fr auto auto 1fr;
+    }
+    .logo { width: min(320px, 70vw, 45vh); }
+    .buttons { margin-top: 16px; }
+  }
+
+  /* registered so the dash gap and color can transition, which is what
+     morphs the solid outline into dashes (and back) */
+  @property --dash-gap {
+    syntax: "<length>";
+    inherits: false;
+    initial-value: 0px;
+  }
+  @property --dash-color {
+    syntax: "<color>";
+    inherits: false;
+    initial-value: transparent;
+  }
+
+  /* the fill is an inset shadow so it can physically collapse onto the
+     edges on hover; the outline is one gradient per edge (top, bottom,
+     left, right) whose dash gap grows from 0 (solid line) to open dashes */
+  .btn {
+    --dash-gap: 0px;
+    --dash-color: transparent;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px;
+    box-shadow: inset 0 0 0 60px rgba(var(--ink-rgb), 0.05);
+    background-image:
+      repeating-linear-gradient(90deg, var(--dash-color) 0 calc(8px - var(--dash-gap)), transparent calc(8px - var(--dash-gap)) 8px),
+      repeating-linear-gradient(90deg, var(--dash-color) 0 calc(8px - var(--dash-gap)), transparent calc(8px - var(--dash-gap)) 8px),
+      repeating-linear-gradient(180deg, var(--dash-color) 0 calc(8px - var(--dash-gap)), transparent calc(8px - var(--dash-gap)) 8px),
+      repeating-linear-gradient(180deg, var(--dash-color) 0 calc(8px - var(--dash-gap)), transparent calc(8px - var(--dash-gap)) 8px);
+    background-size: 8px 2px, 8px 2px, 2px 8px, 2px 8px;
+    background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+    background-position: 0 0, 8px 100%, 0 8px, 100% 0;
+    transition:
+      box-shadow .3s ease,
+      --dash-color .25s ease,
+      --dash-gap .3s ease .1s;
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    pointer-events: auto;
+  }
+
+  /* hover: the fill collapses down to a 2px ring and fades away right as
+     the solid outline it lands on breaks apart into marching dashes */
+  .btn:hover {
+    --dash-gap: 4px;
+    --dash-color: rgba(var(--ink-rgb), 0.25);
+    box-shadow: inset 0 0 0 2px rgba(var(--ink-rgb), 0);
+  }
+
+  .btn img.icon {
+    height: 16px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  /* bottom ornaments */
+  footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* slots are 48px wide, so this puts the outer ornament centers at
+       var(--pad) from the viewport edges, in line with the frame sides */
+    padding: 0 calc(var(--pad) - 24px) 12px;
+  }
+
+  .ornaments {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    height: 48px;
+  }
+  .ornaments .slot {
+    width: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .ornaments .rule {
+    flex: 1;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 5px) 0 0 / 5px 2px repeat-x;
+  }
+  .ornaments img.njsc { width: 42px; height: auto; }
+  .ornaments img.monogram { width: 46px; height: auto; }
+  .ornaments img.head { width: 38px; height: auto; }
+
+  .copyright {
+    margin-top: 12px;
+    text-align: center;
+    font-size: 9px;
+    font-weight: 400;
+    line-height: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    /* the animation video has the light background baked in: grayscale +
+       invert + contrast crushes that background to pure black (and lifts
+       the glyphs to near-white), then screen blending makes black render
+       as exactly the page green — glyphs come out beige */
+    .logo {
+      background: var(--bg); /* blend backdrop; invisible against the page */
+    }
+    .logo video,
+    .logo canvas {
+      filter: grayscale(1) invert(1) contrast(1.6);
+      mix-blend-mode: screen;
+    }
+    /* icons are solid dark green on transparent: flatten to black, then
+       invert most of the way to land on the beige */
+    .btn img.icon {
+      filter: brightness(0) invert(0.94);
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <span class="line top"></span>
+  <span class="line left"></span>
+  <span class="line right"></span>
+</div>
+
+<main>
+  <div class="logo" id="logo">
+    <video id="logo-video" muted playsinline preload="auto" aria-label="New Jersey Software Co."></video>
+    <canvas id="logo-canvas"></canvas>
+  </div>
+
+  <div class="buttons">
+    <a class="btn" href="https://usewords.app"><img class="icon words" src="words.png" alt="">Words</a>
+    <a class="btn" href="https://julios.games"><img class="icon" src="julios.png" alt="">Julios</a>
+  </div>
+</main>
+
+<footer>
+  <div class="ornaments">
+    <span class="slot"><picture>
+      <source srcset="njscdark.png" media="(prefers-color-scheme: dark)">
+      <img class="njsc" src="njsclight.png" alt="NJSC">
+    </picture></span>
+    <div class="rule"></div>
+    <span class="slot"><picture>
+      <source srcset="monogramdark.gif" media="(prefers-color-scheme: dark)">
+      <img class="monogram" src="monogramlight.gif" alt="">
+    </picture></span>
+    <div class="rule"></div>
+    <span class="slot"><picture>
+      <source srcset="headdark.png" media="(prefers-color-scheme: dark)">
+      <img class="head" src="headlight.png" alt="">
+    </picture></span>
+  </div>
+  <div class="copyright">Copyright &copy; 2026 The New Jersey Software Company. All rights reserved</div>
+</footer>
+
+<script>
+  const logo = document.getElementById('logo');
+  const video = document.getElementById('logo-video');
+  const canvas = document.getElementById('logo-canvas');
+  const ctx = canvas.getContext('2d');
+
+  const REWIND_MS = 800; // full-length rewind duration
+  const frames = [];     // pre-decoded frames, first to last
+  let rafId = null;
+  let shownTime = 0;     // timeline position currently drawn on the canvas
+
+  const seekTo = (v, t) => new Promise(resolve => {
+    const done = () => { clearTimeout(fallback); resolve(); };
+    const fallback = setTimeout(done, 250);
+    v.addEventListener('seeked', done, { once: true });
+    v.currentTime = t;
+  });
+
+  // load as a blob so the video is fully seekable even when the server
+  // doesn't support HTTP range requests
+  fetch('logoanimation.webm')
+    .then(res => res.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      video.src = url;
+
+      // seeking backwards through the video is choppy (every step re-decodes
+      // from a keyframe), so decode all frames once into bitmaps and run the
+      // rewind on the canvas instead
+      const v = document.createElement('video');
+      v.muted = true;
+      v.preload = 'auto';
+      v.src = url;
+      v.addEventListener('loadeddata', async () => {
+        canvas.width = v.videoWidth;
+        canvas.height = v.videoHeight;
+        const count = Math.max(2, Math.round(v.duration * 60));
+        for (let i = 0; i < count; i++) {
+          await seekTo(v, (i / (count - 1)) * v.duration);
+          frames.push(await createImageBitmap(v));
+        }
+      }, { once: true });
+    });
+
+  function drawFrameAt(t) {
+    // cross-fade between the two nearest frames so the slow eased tail of
+    // the rewind stays smooth instead of stepping frame to frame
+    const f = (t / video.duration) * (frames.length - 1);
+    const i = Math.max(0, Math.min(frames.length - 1, Math.floor(f)));
+    const next = Math.min(frames.length - 1, i + 1);
+    const frac = f - i;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.globalAlpha = 1;
+    ctx.drawImage(frames[i], 0, 0);
+    if (next !== i && frac > 0) {
+      ctx.globalAlpha = frac;
+      ctx.drawImage(frames[next], 0, 0);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function showCanvas() {
+    video.style.display = 'none';
+    canvas.style.display = 'block';
+  }
+
+  function showVideo() {
+    canvas.style.display = 'none';
+    video.style.display = 'block';
+  }
+
+  const easeOutCubic = x => 1 - Math.pow(1 - x, 3);
+
+  // marching dashes, driven from JS so the motion ramps up and glides to
+  // a stop (CSS animation-play-state can only start/stop dead)
+  const marchers = [];
+  let marchRaf = null;
+  let marchLast = 0;
+
+  function makeMarcher(period, speed, apply) {
+    const m = { v: 0, target: 0, off: 0, period, speed, apply };
+    marchers.push(m);
+    return m;
+  }
+
+  function marchTick(now) {
+    const dt = Math.min((now - marchLast) / 1000, 0.05);
+    marchLast = now;
+    let active = false;
+    for (const m of marchers) {
+      if (m.target === 0 && m.v < 0.15) { m.v = 0; continue; }
+      m.v += (m.target - m.v) * Math.min(1, dt * 5); // eased start and stop
+      m.off = (m.off + m.v * dt) % m.period;
+      m.apply(m.off);
+      active = true;
+    }
+    marchRaf = active ? requestAnimationFrame(marchTick) : null;
+  }
+
+  function wakeMarchers() {
+    if (marchRaf === null) {
+      marchLast = performance.now();
+      marchRaf = requestAnimationFrame(marchTick);
+    }
+  }
+
+  // frame lines + footer rules march together, clockwise around the page
+  const lineTop = document.querySelector('.frame .line.top');
+  const lineLeft = document.querySelector('.frame .line.left');
+  const lineRight = document.querySelector('.frame .line.right');
+  const rules = [...document.querySelectorAll('.ornaments .rule')];
+  const frameMarcher = makeMarcher(5, 12.5, off => {
+    lineTop.style.backgroundPosition = off + 'px 11px';
+    lineLeft.style.backgroundPosition = '11px ' + -off + 'px';
+    lineRight.style.backgroundPosition = '11px ' + off + 'px';
+    for (const r of rules) r.style.backgroundPosition = -off + 'px 0';
+  });
+
+  [lineTop, lineLeft, lineRight, ...rules].forEach(el => {
+    el.addEventListener('mouseenter', () => { frameMarcher.target = frameMarcher.speed; wakeMarchers(); });
+    el.addEventListener('mouseleave', () => { frameMarcher.target = 0; });
+  });
+
+  // each button's dashed outline marches clockwise while hovered
+  document.querySelectorAll('.btn').forEach(btn => {
+    const m = makeMarcher(8, 20, off => {
+      btn.style.backgroundPosition =
+        off + 'px 0, ' + -off + 'px 100%, 0 ' + -off + 'px, 100% ' + off + 'px';
+    });
+    btn.addEventListener('mouseenter', () => { m.target = m.speed; wakeMarchers(); });
+    btn.addEventListener('mouseleave', () => { m.target = 0; });
+  });
+
+  // pin the frame's open bottom so the side lines stop short of the
+  // ornaments, whatever height the footer ends up (e.g. wrapped copyright)
+  function alignFrame() {
+    const rule = document.querySelector('.ornaments .rule').getBoundingClientRect();
+    document.querySelector('.frame').style.bottom =
+      (innerHeight - (rule.top + rule.height / 2) + 48) + 'px';
+  }
+  addEventListener('resize', alignFrame);
+  addEventListener('load', alignFrame);
+  alignFrame();
+
+  // the canvas is only ever swapped out after the video has seeked to the
+  // right spot, started playing, and presented a real frame — so the switch
+  // can never show a stale frame
+  function playAndSwap(t) {
+    let done = false;
+    const swap = () => {
+      if (done) return;
+      done = true;
+      showVideo();
+    };
+    const start = () => {
+      video.play();
+      if (video.requestVideoFrameCallback) {
+        video.requestVideoFrameCallback(swap);
+      } else {
+        video.addEventListener('playing', swap, { once: true });
+      }
+    };
+    if (Math.abs(video.currentTime - t) > 0.02) {
+      video.addEventListener('seeked', start, { once: true });
+      video.currentTime = t;
+    } else {
+      start();
+    }
+    setTimeout(swap, 400); // safety net
+  }
+
+  logo.addEventListener('mouseenter', () => {
+    if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    if (canvas.style.display === 'block') {
+      // canvas is up (mid-rewind or parked after one): resume from there
+      playAndSwap(shownTime);
+    } else {
+      video.play(); // plays forward and pauses on the last frame at 'ended'
+    }
+  });
+
+  logo.addEventListener('mouseleave', () => {
+    video.pause();
+    if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    const startT = canvas.style.display === 'block' ? shownTime : video.currentTime;
+    if (startT <= 0 || frames.length === 0) {
+      // frames not decoded yet — snap back without the rewind animation
+      video.currentTime = 0;
+      showVideo();
+      return;
+    }
+    shownTime = startT;
+    drawFrameAt(startT);
+    showCanvas();
+    const durMs = REWIND_MS * (startT / video.duration);
+    const t0 = performance.now();
+    const step = now => {
+      const p = Math.min(1, (now - t0) / durMs);
+      shownTime = startT * (1 - easeOutCubic(p));
+      drawFrameAt(shownTime);
+      if (p < 1) {
+        rafId = requestAnimationFrame(step);
+      } else {
+        rafId = null;
+        // rewind done: stay on the canvas (it already shows the first
+        // frame) — swapping here is what could flicker. Just park the
+        // video at 0 so the next hover starts from the beginning.
+        video.currentTime = 0;
+      }
+    };
+    rafId = requestAnimationFrame(step);
+  });
+</script>
+
+</body>
+</html>
