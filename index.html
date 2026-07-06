@@ -5,11 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The New Jersey Software Company</title>
 <link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Fraunces:ital,opsz,wght,SOFT,WONK@1,9..144,400,0,1&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/motion@11.11.17/dist/motion.js"></script>
 <style>
   :root {
     --bg: #EFEFED;
     --ink: #144835;
     --ink-rgb: 20, 72, 53;
+    --bg-rgb: 239, 239, 237;
     --pad: clamp(24px, 5vw, 48px); /* distance from viewport edges to the frame lines and ornament centers */
     color-scheme: light dark;
   }
@@ -19,16 +24,22 @@
       --bg: #144835;
       --ink: #EFEFED;
       --ink-rgb: 239, 239, 237;
+      --bg-rgb: 20, 72, 53;
     }
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
+  ::selection {
+    background: var(--ink);
+    color: var(--bg);
+  }
+
   html, body {
     height: 100%;
     background: var(--bg);
     color: var(--ink);
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
 
   /* dotted frame around the viewport — no bottom edge; the ornament rules
@@ -77,19 +88,49 @@
     grid-row: 2;
     align-self: center;
     width: min(320px, 70vw, 55vh);
-    cursor: pointer;
+    /* fixed to the video's own aspect ratio so the box never changes size
+       when swapping between video/canvas and the static logo — otherwise
+       the shorter static image would shrink the box and snap the buttons
+       below it into a new position */
+    aspect-ratio: 2186 / 1304;
+    position: relative;
+    cursor: default;
     pointer-events: auto;
+    will-change: transform;
+  }
+  .logo video,
+  .logo canvas,
+  .logo .logo-static {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
   .logo video,
   .logo canvas {
     display: block;
-    width: 100%;
-    height: auto;
     /* trim 1px: the filtered/blended surface can grow a dark hairline at
        its fractional-pixel bottom edge */
     clip-path: inset(1px);
   }
   .logo canvas { display: none; }
+
+  /* info mode shows the plain logo file instead of the animated video */
+  /* the still logo file is cropped tighter than the animation's canvas,
+     so at the same box it reads larger via object-fit: contain — scale it
+     down to match the animated logo's true glyph size */
+  .logo .logo-static {
+    display: none;
+    transform: scale(0.916);
+  }
+  /* swap timing is decoupled from .info-open: on close, this class (and
+     therefore the static logo) stays put until the exit animation has
+     fully finished, so the swap back to the animated logo never overlaps
+     the logo's return motion */
+  body.logo-static-mode .logo video,
+  body.logo-static-mode .logo canvas { display: none !important; }
+  body.logo-static-mode .logo .logo-static { display: block; }
 
   .buttons {
     grid-row: 3;
@@ -97,6 +138,13 @@
     margin-top: clamp(16px, 4vh, 36px);
     display: flex;
     gap: 12px;
+    transition: opacity .4s ease, transform .4s ease, filter .4s ease;
+  }
+  body.info-open .buttons {
+    opacity: 0;
+    transform: translateY(24px);
+    filter: blur(6px);
+    pointer-events: none;
   }
 
   /* short viewports: exact logo centering can't fit anymore, so the
@@ -110,58 +158,42 @@
     .buttons { margin-top: 16px; }
   }
 
-  /* registered so the dash gap and color can transition, which is what
-     morphs the solid outline into dashes (and back) */
-  @property --dash-gap {
-    syntax: "<length>";
-    inherits: false;
-    initial-value: 0px;
-  }
-  @property --dash-color {
-    syntax: "<color>";
-    inherits: false;
-    initial-value: transparent;
-  }
-
-  /* the fill is an inset shadow so it can physically collapse onto the
-     edges on hover; the outline is one gradient per edge (top, bottom,
-     left, right) whose dash gap grows from 0 (solid line) to open dashes */
+  /* no container at rest: a dotted outline drawn exactly like the frame
+     lines fades in on hover and marches (offset driven via --off) */
   .btn {
-    --dash-gap: 0px;
-    --dash-color: transparent;
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 7px;
-    padding: 8px;
-    box-shadow: inset 0 0 0 60px rgba(var(--ink-rgb), 0.05);
-    background-image:
-      repeating-linear-gradient(90deg, var(--dash-color) 0 calc(8px - var(--dash-gap)), transparent calc(8px - var(--dash-gap)) 8px),
-      repeating-linear-gradient(90deg, var(--dash-color) 0 calc(8px - var(--dash-gap)), transparent calc(8px - var(--dash-gap)) 8px),
-      repeating-linear-gradient(180deg, var(--dash-color) 0 calc(8px - var(--dash-gap)), transparent calc(8px - var(--dash-gap)) 8px),
-      repeating-linear-gradient(180deg, var(--dash-color) 0 calc(8px - var(--dash-gap)), transparent calc(8px - var(--dash-gap)) 8px);
-    background-size: 8px 2px, 8px 2px, 2px 8px, 2px 8px;
-    background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
-    background-position: 0 0, 8px 100%, 0 8px, 100% 0;
-    transition:
-      box-shadow .3s ease,
-      --dash-color .25s ease,
-      --dash-gap .3s ease .1s;
+    gap: 11px;
+    padding: 10px 14px;
     color: var(--ink);
     text-decoration: none;
-    font-size: 12px;
-    font-weight: 400;
-    letter-spacing: 0.12em;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     pointer-events: auto;
   }
-
-  /* hover: the fill collapses down to a 2px ring and fades away right as
-     the solid outline it lands on breaks apart into marching dashes */
-  .btn:hover {
-    --dash-gap: 4px;
-    --dash-color: rgba(var(--ink-rgb), 0.25);
-    box-shadow: inset 0 0 0 2px rgba(var(--ink-rgb), 0);
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 5px),
+      repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 5px),
+      repeating-linear-gradient(180deg, var(--ink) 0 2px, transparent 2px 5px),
+      repeating-linear-gradient(180deg, var(--ink) 0 2px, transparent 2px 5px);
+    background-size: 5px 2px, 5px 2px, 2px 5px, 2px 5px;
+    background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+    background-position:
+      var(--off, 0px) 0,
+      calc(-1 * var(--off, 0px)) 100%,
+      0 calc(-1 * var(--off, 0px)),
+      100% var(--off, 0px);
+    opacity: 0;
+    pointer-events: none;
   }
+  .btn:hover::before { opacity: 1; }
 
   .btn img.icon {
     height: 16px;
@@ -207,18 +239,140 @@
     margin-top: 12px;
     text-align: center;
     font-size: 9px;
-    font-weight: 400;
+    font-weight: 500;
     line-height: 12px;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
   }
+
+  /* info button: the plex mono i, custom-morphed into a hand-drawn x
+     (two svg lines with an animated stroke-draw) */
+  .info-btn {
+    position: fixed;
+    top: calc(var(--pad) + 14px);
+    right: calc(var(--pad) + 14px);
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    z-index: 4;
+  }
+  .info-btn .g {
+    grid-area: 1 / 1;
+    line-height: 1;
+    will-change: transform, opacity, filter;
+  }
+  .info-btn svg#glyphX {
+    width: 20px;
+    height: 20px;
+    opacity: 0;
+    overflow: visible;
+  }
+  .info-btn svg#glyphX line {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  /* about panel: full height, clipped to the frame so text never crosses
+     the side lines. It sits BEFORE <main> in the DOM, so the text scrolls
+     underneath the logo; the top blur+fade lives under the logo on z too */
+  .about {
+    position: fixed;
+    left: var(--pad);
+    right: var(--pad);
+    top: 0;
+    bottom: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  /* stays mounted slightly longer than .info-open so the exit animation
+     (text sliding down) can finish before the panel disappears */
+  body.panel-open .about {
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .about-inner {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 16px 24px 240px;
+    will-change: transform;
+  }
+  .about-inner p {
+    font-family: "Fraunces", Georgia, serif;
+    font-style: italic;
+    font-weight: 400;
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 0, "WONK" 1;
+    color: var(--ink);
+    font-size: clamp(16px, 2.2vw, 19px);
+    line-height: 1.65;
+    margin-bottom: 1.3em;
+    opacity: 0;
+    will-change: transform, filter, opacity;
+  }
+  .about-inner p.quote {
+    margin-top: 2.2em;
+    font-size: clamp(14px, 1.9vw, 16.5px);
+  }
+
+  /* reactbits GradualBlur, faithful port: divCount 5, strength 2, linear
+     curve — blur_i = 0.0625 * (i + 1) * strength rem, each layer masked to
+     an overlapping 4-stop band stepping 20% per layer, plus a soft tint */
+  .about .fade {
+    position: absolute;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .about .fade > div { position: absolute; inset: 0; }
+  .about .fade.bottom { bottom: 0; height: 9rem; }
+  /* under-logo zone: spans from the screen top to just below the logo
+     (height driven from JS as the logo moves); text blurs as it rises and
+     is fully faded out above the logo */
+  .about .fade.top { top: 0; height: 45vh; }
+
+  .about .fade .l1 { backdrop-filter: blur(0.25rem); }
+  .about .fade .l2 { backdrop-filter: blur(0.375rem); }
+  .about .fade .l3 { backdrop-filter: blur(0.5rem); }
+  .about .fade .l4 { backdrop-filter: blur(0.625rem); }
+  .about .fade .l5 { backdrop-filter: blur(0.75rem); }
+
+  .about .fade.bottom .l1 { -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 40%, transparent 60%); mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 40%, transparent 60%); }
+  .about .fade.bottom .l2 { -webkit-mask-image: linear-gradient(to bottom, transparent 20%, black 40%, black 60%, transparent 80%); mask-image: linear-gradient(to bottom, transparent 20%, black 40%, black 60%, transparent 80%); }
+  .about .fade.bottom .l3 { -webkit-mask-image: linear-gradient(to bottom, transparent 40%, black 60%, black 80%, transparent 100%); mask-image: linear-gradient(to bottom, transparent 40%, black 60%, black 80%, transparent 100%); }
+  .about .fade.bottom .l4 { -webkit-mask-image: linear-gradient(to bottom, transparent 60%, black 80%, black 100%, transparent 120%); mask-image: linear-gradient(to bottom, transparent 60%, black 80%, black 100%, transparent 120%); }
+  .about .fade.bottom .l5 { -webkit-mask-image: linear-gradient(to bottom, transparent 80%, black 100%, black 120%, transparent 140%); mask-image: linear-gradient(to bottom, transparent 80%, black 100%, black 120%, transparent 140%); }
+  .about .fade.bottom .tint { background: linear-gradient(to bottom, transparent 0%, var(--bg) 90%); }
+
+  .about .fade.top .l1 { -webkit-mask-image: linear-gradient(to top, transparent 0%, black 20%, black 40%, transparent 60%); mask-image: linear-gradient(to top, transparent 0%, black 20%, black 40%, transparent 60%); }
+  .about .fade.top .l2 { -webkit-mask-image: linear-gradient(to top, transparent 20%, black 40%, black 60%, transparent 80%); mask-image: linear-gradient(to top, transparent 20%, black 40%, black 60%, transparent 80%); }
+  .about .fade.top .l3 { -webkit-mask-image: linear-gradient(to top, transparent 40%, black 60%, black 80%, transparent 100%); mask-image: linear-gradient(to top, transparent 40%, black 60%, black 80%, transparent 100%); }
+  .about .fade.top .l4 { -webkit-mask-image: linear-gradient(to top, transparent 60%, black 80%, black 100%, transparent 120%); mask-image: linear-gradient(to top, transparent 60%, black 80%, black 100%, transparent 120%); }
+  .about .fade.top .l5 { -webkit-mask-image: linear-gradient(to top, transparent 80%, black 100%, black 120%, transparent 140%); mask-image: linear-gradient(to top, transparent 80%, black 100%, black 120%, transparent 140%); }
+  .about .fade.top .tint { background: linear-gradient(to top, transparent 0%, var(--bg) 62%); }
 
   @media (prefers-color-scheme: dark) {
     /* the animation video has the light background baked in: grayscale +
        invert + contrast crushes that background to pure black (and lifts
        the glyphs to near-white), then screen blending makes black render
-       as exactly the page green — glyphs come out beige */
-    .logo {
+       as exactly the page green — glyphs come out beige. That trick needs
+       an opaque backdrop behind the video, but the static logo PNG is
+       already transparent and doesn't — so the backdrop is scoped off in
+       logo-static-mode, letting the blurred text behind it show through
+       everywhere except the actual glyph strokes. */
+    body:not(.logo-static-mode) .logo {
       background: var(--bg); /* blend backdrop; invisible against the page */
     }
     .logo video,
@@ -236,6 +390,20 @@
 </head>
 <body>
 
+<div class="about" id="about">
+  <div class="about-inner" id="aboutInner">
+    <p>We&rsquo;re a collective of humans working to make the internet a better place to be.</p>
+    <p>The web is crowded with software that treats people as an afterthought; sites built for search engines, for stakeholders, for everyone except the person actually using them. We think that&rsquo;s backwards.</p>
+    <p>Everything we build starts with a single question: how will this feel to the person on the other side of the screen? User experience isn&rsquo;t a phase we get to at the end. It&rsquo;s the foundation we start from.</p>
+    <p>That means we sweat the details most companies skip. The load time nobody notices until it&rsquo;s gone. The button that lands exactly where your thumb expects it. The copy that reads like a person wrote it. The quiet confidence of a site that just works, every time, on every device.</p>
+    <p>When we say user experience comes first, we mean it literally. Not first among competing priorities. First. Before the trends, before the shortcuts, before the easy path. If a decision makes life better for the people using what we build, that&rsquo;s the decision we make.</p>
+    <p>We build websites the way they should be built: with the human in mind, from the very first line.</p>
+    <p class="quote">&ldquo;When you&rsquo;re a carpenter making a beautiful chest of drawers, you&rsquo;re not going to use a piece of plywood on the back, even though it faces the wall and nobody will ever see it. You&rsquo;ll know it&rsquo;s there, so you&rsquo;re going to use a beautiful piece of wood on the back. For you to sleep well at night, the aesthetic, the quality, has to be carried all the way through.&rdquo; &mdash; Steve Jobs</p>
+  </div>
+  <div class="fade top" id="fadeTop"><div class="l1"></div><div class="l2"></div><div class="l3"></div><div class="l4"></div><div class="l5"></div><div class="tint"></div></div>
+  <div class="fade bottom"><div class="l1"></div><div class="l2"></div><div class="l3"></div><div class="l4"></div><div class="l5"></div><div class="tint"></div></div>
+</div>
+
 <div class="frame">
   <span class="line top"></span>
   <span class="line left"></span>
@@ -246,6 +414,10 @@
   <div class="logo" id="logo">
     <video id="logo-video" muted playsinline preload="auto" aria-label="New Jersey Software Co."></video>
     <canvas id="logo-canvas"></canvas>
+    <picture>
+      <source srcset="logodark.png" media="(prefers-color-scheme: dark)">
+      <img class="logo-static" src="logolight.png" alt="New Jersey Software Co.">
+    </picture>
   </div>
 
   <div class="buttons">
@@ -253,6 +425,14 @@
     <a class="btn" href="https://julios.games"><img class="icon" src="julios.png" alt="">Julios</a>
   </div>
 </main>
+
+<button class="info-btn" id="infoBtn" aria-label="About us">
+  <span class="g" id="glyphI">i</span>
+  <svg class="g" id="glyphX" viewBox="0 0 20 20">
+    <line id="glyphXa" x1="10" y1="10" x2="10" y2="10"></line>
+    <line id="glyphXb" x1="10" y1="10" x2="10" y2="10"></line>
+  </svg>
+</button>
 
 <footer>
   <div class="ornaments">
@@ -397,11 +577,11 @@
     el.addEventListener('mouseleave', () => { frameMarcher.target = 0; });
   });
 
-  // each button's dashed outline marches clockwise while hovered
+  // each button's dotted outline marches clockwise while hovered, with the
+  // same dot rhythm and speed as the frame lines
   document.querySelectorAll('.btn').forEach(btn => {
-    const m = makeMarcher(8, 20, off => {
-      btn.style.backgroundPosition =
-        off + 'px 0, ' + -off + 'px 100%, 0 ' + -off + 'px, 100% ' + off + 'px';
+    const m = makeMarcher(5, 12.5, off => {
+      btn.style.setProperty('--off', off + 'px');
     });
     btn.addEventListener('mouseenter', () => { m.target = m.speed; wakeMarchers(); });
     btn.addEventListener('mouseleave', () => { m.target = 0; });
@@ -446,6 +626,7 @@
   }
 
   logo.addEventListener('mouseenter', () => {
+    if (logoStaticActive) return; // static logo is showing
     if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
     if (canvas.style.display === 'block') {
       // canvas is up (mid-rewind or parked after one): resume from there
@@ -456,6 +637,7 @@
   });
 
   logo.addEventListener('mouseleave', () => {
+    if (logoStaticActive) return;
     video.pause();
     if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
     const startT = canvas.style.display === 'block' ? shownTime : video.currentTime;
@@ -485,6 +667,225 @@
       }
     };
     rafId = requestAnimationFrame(step);
+  });
+
+  // ---------------------------------------------------------------- info
+
+  const infoBtn = document.getElementById('infoBtn');
+  const aboutEl = document.getElementById('about');
+  const aboutInner = document.getElementById('aboutInner');
+  const aboutParas = [...aboutInner.querySelectorAll('p')];
+  const M = window.Motion; // framer motion (vanilla build)
+
+  let infoOpen = false;
+  let logoStaticActive = false;
+  let openP = 0;            // 0 = home, 1 = info fully open
+  let openAnim = null;
+  let scrollCur = 0;
+  let scrollTarget = 0;
+  let scrollRaf = null;
+
+  const fadeTop = document.getElementById('fadeTop');
+
+  // logo position/scale = open shift + scroll-linked lift & shrink; the
+  // under-logo blur zone stretches from the screen top to just below the
+  // logo, wherever it moves — the logo itself paints above it
+  function applyLogoTransform() {
+    const prog = Math.min(scrollCur / 260, 1) * openP;
+    const up = innerHeight * 0.25 * openP + prog * 70;
+    const sc = 1 - prog * 0.28;
+    logo.style.transform = 'translateY(' + -up + 'px) scale(' + sc + ')';
+    if (openP > 0.01) {
+      fadeTop.style.height = Math.round(logo.getBoundingClientRect().bottom + 56) + 'px';
+    }
+  }
+
+  // at rest the text column starts below the logo's opened position
+  function layoutAboutPadding() {
+    const logoH = logo.offsetHeight;
+    aboutInner.style.paddingTop = Math.round(innerHeight * 0.25 + logoH / 2 + 40) + 'px';
+  }
+  addEventListener('resize', layoutAboutPadding);
+
+  function animateOpenP(to) {
+    if (openAnim) openAnim.stop && openAnim.stop();
+    if (M && M.animate) {
+      openAnim = M.animate(openP, to, {
+        type: 'spring', bounce: 0.15, duration: 0.8,
+        onUpdate: v => { openP = v; applyLogoTransform(); }
+      });
+    } else {
+      const from = openP, t0 = performance.now();
+      const tick = now => {
+        const p = Math.min(1, (now - t0) / 600);
+        openP = from + (to - from) * (1 - Math.pow(1 - p, 3));
+        applyLogoTransform();
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+  }
+
+  function showText() {
+    aboutParas.forEach((p, i) => {
+      if (M && M.animate) {
+        M.animate(p, {
+          opacity: [0, 1],
+          transform: ['translateY(70px)', 'translateY(0px)'],
+          filter: ['blur(12px)', 'blur(0px)']
+        }, { duration: 0.9, delay: 0.18 + i * 0.1, type: 'spring', bounce: 0.3 });
+      } else {
+        p.style.transition = 'opacity .6s ease, transform .7s cubic-bezier(.34,1.56,.64,1), filter .6s ease';
+        p.style.opacity = 0;
+        p.style.transform = 'translateY(70px)';
+        p.style.filter = 'blur(12px)';
+        setTimeout(() => {
+          p.style.opacity = 1;
+          p.style.transform = 'translateY(0)';
+          p.style.filter = 'blur(0)';
+        }, 180 + i * 100);
+      }
+    });
+  }
+
+  const HIDE_TEXT_MS = 550;
+
+  function hideText() {
+    aboutParas.forEach((p, i) => {
+      if (M && M.animate) {
+        M.animate(p, {
+          opacity: 0,
+          transform: 'translateY(60px)',
+          filter: 'blur(10px)'
+        }, { duration: 0.5, delay: i * 0.02, ease: [0.4, 0, 0.2, 1] });
+      } else {
+        p.style.transition = 'opacity .45s ease, transform .5s ease, filter .45s ease';
+        p.style.opacity = 0;
+        p.style.transform = 'translateY(60px)';
+        p.style.filter = 'blur(10px)';
+      }
+    });
+  }
+
+  function maxScroll() {
+    return Math.max(0, aboutInner.offsetHeight - aboutEl.clientHeight + 40);
+  }
+
+  // custom lerp scrolling — the panel never native-scrolls, the column is
+  // translated toward a target for a heavy, smooth feel
+  function scrollLoop() {
+    scrollCur += (scrollTarget - scrollCur) * 0.1;
+    if (Math.abs(scrollTarget - scrollCur) < 0.4) scrollCur = scrollTarget;
+    aboutInner.style.transform = 'translateY(' + -scrollCur + 'px)';
+    applyLogoTransform();
+    scrollRaf = scrollCur === scrollTarget ? null : requestAnimationFrame(scrollLoop);
+  }
+
+  function nudgeScroll(delta) {
+    scrollTarget = Math.max(0, Math.min(scrollTarget + delta, maxScroll()));
+    if (scrollRaf === null) scrollRaf = requestAnimationFrame(scrollLoop);
+  }
+
+  addEventListener('wheel', e => {
+    if (!infoOpen) return;
+    e.preventDefault();
+    nudgeScroll(e.deltaY);
+  }, { passive: false });
+
+  let touchY = null;
+  addEventListener('touchstart', e => { touchY = e.touches[0].clientY; }, { passive: true });
+  addEventListener('touchmove', e => {
+    if (!infoOpen || touchY === null) return;
+    e.preventDefault();
+    nudgeScroll((touchY - e.touches[0].clientY) * 1.6);
+    touchY = e.touches[0].clientY;
+  }, { passive: false });
+
+  // ------------------------------------------------- info icon (i <-> x)
+  // custom morph: the i fades/blurs away while an x draws itself outward
+  // from the center, one stroke at a time — slow, no bounce
+
+  const glyphI = document.getElementById('glyphI');
+  const glyphX = document.getElementById('glyphX');
+  const glyphXa = document.getElementById('glyphXa');
+  const glyphXb = document.getElementById('glyphXb');
+  let iconAnim = null;
+  let iconP = 0;
+
+  function setIcon(p) {
+    iconP = p;
+    const c = v => Math.max(0, Math.min(1, v));
+    const qi = c(1 - p * 1.4);
+    glyphI.style.opacity = qi;
+    glyphI.style.filter = 'blur(' + (1 - qi) * 2 + 'px)';
+    // first stroke draws from the center outward, then the second follows
+    const qa = c((p - 0.15) / 0.55);
+    const qb = c((p - 0.45) / 0.55);
+    const reach = 7;
+    glyphXa.setAttribute('x1', 10 - reach * qa);
+    glyphXa.setAttribute('y1', 10 - reach * qa);
+    glyphXa.setAttribute('x2', 10 + reach * qa);
+    glyphXa.setAttribute('y2', 10 + reach * qa);
+    glyphXb.setAttribute('x1', 10 + reach * qb);
+    glyphXb.setAttribute('y1', 10 - reach * qb);
+    glyphXb.setAttribute('x2', 10 - reach * qb);
+    glyphXb.setAttribute('y2', 10 + reach * qb);
+    glyphX.style.opacity = p > 0.14 ? 1 : 0;
+  }
+
+  function animateIcon(to) {
+    if (iconAnim && iconAnim.stop) iconAnim.stop();
+    if (M && M.animate) {
+      iconAnim = M.animate(iconP, to, {
+        duration: 0.8, ease: [0.65, 0, 0.35, 1],
+        onUpdate: setIcon
+      });
+    } else {
+      const from = iconP, t0 = performance.now();
+      const tick = now => {
+        const p = Math.min(1, (now - t0) / 800);
+        const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+        setIcon(from + (to - from) * e);
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+  }
+
+  let panelHideTimer = null;
+  let logoSwapTimer = null;
+  const CLOSE_ANIM_MS = 700; // covers the spring-driven logo return + text exit
+
+  infoBtn.addEventListener('click', () => {
+    infoOpen = !infoOpen;
+    document.body.classList.toggle('info-open', infoOpen);
+    animateIcon(infoOpen ? 1 : 0);
+    if (infoOpen) {
+      if (panelHideTimer) { clearTimeout(panelHideTimer); panelHideTimer = null; }
+      if (logoSwapTimer) { clearTimeout(logoSwapTimer); logoSwapTimer = null; }
+      logoStaticActive = true;
+      document.body.classList.add('panel-open', 'logo-static-mode');
+      scrollCur = scrollTarget = 0;
+      aboutInner.style.transform = 'translateY(0)';
+      layoutAboutPadding();
+      animateOpenP(1);
+      showText();
+    } else {
+      hideText();
+      animateOpenP(0);
+      // keep the panel mounted until the text has finished sliding down,
+      // and keep showing the static logo until the whole close animation
+      // (logo return + text exit) is done — only then swap to the video
+      panelHideTimer = setTimeout(() => {
+        document.body.classList.remove('panel-open');
+        panelHideTimer = null;
+      }, HIDE_TEXT_MS);
+      logoSwapTimer = setTimeout(() => {
+        document.body.classList.remove('logo-static-mode');
+        logoStaticActive = false;
+        logoSwapTimer = null;
+      }, CLOSE_ANIM_MS);
+    }
   });
 </script>
 
